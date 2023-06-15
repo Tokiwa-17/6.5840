@@ -22,8 +22,15 @@ type ExampleReply struct {
 	Y int
 }
 
-// Add your RPC definitions here.
+type KeyRequestArgs struct {
+	FileId int
+}
 
+type KeyReplyArgs struct {
+	Filename string
+}
+
+// Add your RPC definitions here.
 
 // Cook up a unique-ish UNIX-domain socket name
 // in /var/tmp, for the coordinator.
