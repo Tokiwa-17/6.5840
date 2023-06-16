@@ -8,22 +8,13 @@ import "net/http"
 
 type Coordinator struct {
 	// Your definitions here.
-	mp map[int]string
-}
-
-// Your code here -- RPC handlers for the worker to call.
-
-// an example RPC handler.
-//
-// the RPC argument and reply types are defined in rpc.go.
-func (c *Coordinator) Example(args *ExampleArgs, reply *ExampleReply) error {
-	reply.Y = args.X + 1
-	return nil
+	mp      map[int]string
+	NReduce int
 }
 
 func (c *Coordinator) KeyRequest(args *KeyRequestArgs, reply *KeyReplyArgs) error {
 	reply.Filename = c.mp[args.FileId]
-	println(reply.Filename)
+	reply.NReduce = c.NReduce
 	return nil
 }
 
@@ -57,6 +48,7 @@ func (c *Coordinator) Done() bool {
 func MakeCoordinator(files []string, nReduce int) *Coordinator {
 	c := Coordinator{}
 	c.mp = make(map[int]string)
+	c.NReduce = nReduce
 	id := 0
 	for id < len(files) {
 		c.mp[id] = files[id]

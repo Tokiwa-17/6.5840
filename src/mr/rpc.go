@@ -28,6 +28,7 @@ type KeyRequestArgs struct {
 
 type KeyReplyArgs struct {
 	Filename string
+	NReduce  int
 }
 
 // Add your RPC definitions here.

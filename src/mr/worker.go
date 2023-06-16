@@ -1,6 +1,12 @@
 package mr
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"os"
+	"strconv"
+)
 import "log"
 import "net/rpc"
 import "hash/fnv"
@@ -24,51 +30,55 @@ func Worker(mapf func(string, string) []KeyValue,
 	reducef func(string, []string) string) {
 
 	// Your worker implementation here.
+	args := KeyRequestArgs{}
+	keyReply := KeyReplyArgs{}
+	CallKeyRequest(0, &args, &keyReply)
+	intermediate := []KeyValue{}
+	file, err := os.Open("/Users/ylf/Desktop/23spring/6.5840/src/main/" + keyReply.Filename)
+	if err != nil {
+		log.Fatalf("cannot open %v", keyReply.Filename)
+	}
+	content, err := ioutil.ReadAll(file)
+	if err != nil {
+		log.Fatalf("cannot read %v", keyReply.Filename)
+	}
+	file.Close()
+	kva := mapf(keyReply.Filename, string(content))
+	intermediate = append(intermediate, kva...)
+	nReduce := keyReply.NReduce
+	outfiles := make([]*os.File, nReduce)
+	encfiles := make([]*json.Encoder, nReduce)
+	for i := 0; i < nReduce; i++ {
+		outfiles[i], _ = ioutil.TempFile("/Users/ylf/Desktop/23spring/6.5840/src/mr", "mr-tmp-*")
+		encfiles[i] = json.NewEncoder(outfiles[i])
+	}
+	for _, kv := range intermediate {
+		outIdx := ihash(kv.Key) % nReduce
+		err := encfiles[outIdx].Encode(&kv)
+		if err != nil {
+			log.Fatalf("write intermediate file failed")
+		}
+	}
+	prefix := "/Users/ylf/Desktop/23spring/6.5840/src/mr/mr-"
+	for idx, file := range outfiles {
+		oldname := (*file).Name()
+		newname := prefix + strconv.Itoa(args.FileId) + "-" + strconv.Itoa(idx)
+		os.Rename(oldname, newname)
+	}
 
-	// uncomment to send the Example RPC to the coordinator.
-	// CallExample()
-	CallKeyRequest(0)
 }
 
-func CallKeyRequest(Id int) {
-	args := KeyRequestArgs{}
-	args.FileId = Id
+func CallKeyRequest(Id int, args *KeyRequestArgs, keyReply *KeyReplyArgs) {
 
-	keyReply := KeyReplyArgs{}
+	args.FileId = Id
 
 	ok := call("Coordinator.KeyRequest", &args, &keyReply)
 
 	if ok {
 		fmt.Printf("reply.filename %v\n", keyReply.Filename)
+
 	} else {
-		fmt.Printf("KeyRequest call failed!\n")
-	}
-}
-
-// example function to show how to make an RPC call to the coordinator.
-//
-// the RPC argument and reply types are defined in rpc.go.
-func CallExample() {
-
-	// declare an argument structure.
-	args := ExampleArgs{}
-
-	// fill in the argument(s).
-	args.X = 99
-
-	// declare a reply structure.
-	reply := ExampleReply{}
-
-	// send the RPC request, wait for the reply.
-	// the "Coordinator.Example" tells the
-	// receiving server that we'd like to call
-	// the Example() method of struct Coordinator.
-	ok := call("Coordinator.Example", &args, &reply)
-	if ok {
-		// reply.Y should be 100.
-		fmt.Printf("reply.Y %v\n", reply.Y)
-	} else {
-		fmt.Printf("call failed!\n")
+		log.Fatalf("KeyRequest call failed!\n")
 	}
 }
 
