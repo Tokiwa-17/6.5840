@@ -3,7 +3,6 @@
 #
 # map-reduce tests
 #
-
 # un-comment this to run the tests with the Go race detector.
 # RACE=-race
 
@@ -90,6 +89,7 @@ pid=$!
 # give the coordinator time to create the sockets.
 sleep 1
 
+echo `pwd`
 # start multiple workers.
 (maybe_quiet $TIMEOUT ../mrworker ../../mrapps/wc.so) &
 (maybe_quiet $TIMEOUT ../mrworker ../../mrapps/wc.so) &

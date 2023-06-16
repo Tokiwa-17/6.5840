@@ -44,7 +44,8 @@ func Worker(mapf func(string, string) []KeyValue,
 	CallMapRequest(&args, &keyReply)
 	if !keyReply.MapPhaseDone {
 		intermediate := []KeyValue{}
-		file, err := os.Open("/Users/ylf/Desktop/23spring/6.5840/src/main/" + keyReply.Filename)
+		//file, err := os.Open("main/" + keyReply.Filename)
+		file, err := os.Open(keyReply.Filename)
 		if err != nil {
 			log.Fatalf("cannot open %v", keyReply.Filename)
 		}
@@ -59,7 +60,8 @@ func Worker(mapf func(string, string) []KeyValue,
 		outfiles := make([]*os.File, nReduce)
 		encfiles := make([]*json.Encoder, nReduce)
 		for i := 0; i < nReduce; i++ {
-			outfiles[i], _ = ioutil.TempFile("/Users/ylf/Desktop/23spring/6.5840/src/mr", "mr-tmp-*")
+			//outfiles[i], _ = ioutil.TempFile("main", "mr-tmp-*")
+			outfiles[i], _ = ioutil.TempFile(".", "mr-tmp-*")
 			encfiles[i] = json.NewEncoder(outfiles[i])
 		}
 		for _, kv := range intermediate {
@@ -69,7 +71,8 @@ func Worker(mapf func(string, string) []KeyValue,
 				log.Fatalf("write intermediate file failed")
 			}
 		}
-		prefix := "/Users/ylf/Desktop/23spring/6.5840/src/mr/mr-"
+		//prefix := "main/mr-"
+		prefix := "./mr-"
 		for idx, file := range outfiles {
 			oldname := (*file).Name()
 			newname := prefix + strconv.Itoa(keyReply.FileId) + "-" + strconv.Itoa(idx)
@@ -81,11 +84,11 @@ func Worker(mapf func(string, string) []KeyValue,
 		reply := ReduceReplyArgs{}
 		CallReduceRequest(&args, &reply)
 		if reply.ReducePhaseDone {
-
+			return
 		}
 		kva := []KeyValue{}
 		for i := 0; i < 8; i++ {
-			filename := "mr-" + strconv.Itoa(i) + "-" + strconv.Itoa(reply.Id)
+			filename := "main/" + "mr-" + strconv.Itoa(i) + "-" + strconv.Itoa(reply.Id)
 			file, err := os.Open(filename)
 			if err != nil {
 				log.Fatalf("cannot read intermediate file %v\n", filename)
@@ -102,7 +105,7 @@ func Worker(mapf func(string, string) []KeyValue,
 
 		sort.Sort(ByKey(kva))
 
-		oname := "mr-out-" + strconv.Itoa(reply.Id)
+		oname := "main/mr-out-" + strconv.Itoa(reply.Id)
 		ofile, _ := os.Create(oname)
 
 		i := 0

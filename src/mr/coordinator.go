@@ -1,6 +1,9 @@
 package mr
 
-import "log"
+import (
+	"log"
+	"time"
+)
 import "net"
 import "os"
 import "net/rpc"
@@ -23,6 +26,7 @@ type Coordinator struct {
 	ReduceTaskStatus []int
 	NReduce          int
 	TaskDone         bool
+	lastRequestTime  time.Time
 }
 
 func (c *Coordinator) MapRequest(args *MapRequestArgs, reply *MapReplyArgs) error {
@@ -41,6 +45,7 @@ func (c *Coordinator) MapRequest(args *MapRequestArgs, reply *MapReplyArgs) erro
 	reply.FileId = args.FileId
 	reply.NReduce = c.NReduce
 	c.MapTaskStatus[args.FileId] = 1
+	c.lastRequestTime = time.Now()
 	return nil
 }
 
@@ -63,6 +68,7 @@ func (c *Coordinator) ReduceRequest(args *ReduceRequestArgs, reply *ReduceReplyA
 		return nil
 	}
 	reply.Id = args.Id
+	c.lastRequestTime = time.Now()
 	return nil
 }
 
@@ -89,7 +95,10 @@ func (c *Coordinator) server() {
 // if the entire job has finished.
 func (c *Coordinator) Done() bool {
 	ret := c.TaskDone
-
+	//d := time.Now().Sub(c.lastRequestTime)
+	//if d.Seconds() > 10 {
+	//	ret = true
+	//}
 	// Your code here.
 
 	return ret
