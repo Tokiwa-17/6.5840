@@ -68,6 +68,7 @@ func (c *Coordinator) ReduceRequest(args *ReduceRequestArgs, reply *ReduceReplyA
 		return nil
 	}
 	reply.Id = args.Id
+	c.ReduceTaskStatus[args.Id] = 1
 	c.lastRequestTime = time.Now()
 	return nil
 }
@@ -95,10 +96,10 @@ func (c *Coordinator) server() {
 // if the entire job has finished.
 func (c *Coordinator) Done() bool {
 	ret := c.TaskDone
-	//d := time.Now().Sub(c.lastRequestTime)
-	//if d.Seconds() > 10 {
-	//	ret = true
-	//}
+	d := time.Now().Sub(c.lastRequestTime)
+	if d.Seconds() > 10 {
+		ret = true
+	}
 	// Your code here.
 
 	return ret
@@ -114,6 +115,7 @@ func MakeCoordinator(files []string, nReduce int) *Coordinator {
 	c.NReduce = nReduce
 	c.MapTaskStatus = make([]int, len(files), len(files))
 	c.ReduceTaskStatus = make([]int, nReduce, nReduce)
+	c.lastRequestTime = time.Now()
 	c.server()
 	return &c
 }

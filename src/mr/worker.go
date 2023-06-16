@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"sort"
 	"strconv"
 )
 import "log"
@@ -39,10 +38,11 @@ func Worker(mapf func(string, string) []KeyValue,
 	reducef func(string, []string) string) {
 
 	// Your worker implementation here.
-	args := MapRequestArgs{}
-	keyReply := MapReplyArgs{}
-	CallMapRequest(&args, &keyReply)
-	if !keyReply.MapPhaseDone {
+	for {
+		//Fixme： add an askForTask call
+		args := MapRequestArgs{}
+		keyReply := MapReplyArgs{}
+		CallMapRequest(&args, &keyReply)
 		intermediate := []KeyValue{}
 		//file, err := os.Open("main/" + keyReply.Filename)
 		file, err := os.Open(keyReply.Filename)
@@ -79,54 +79,55 @@ func Worker(mapf func(string, string) []KeyValue,
 			os.Rename(oldname, newname)
 		}
 		CallMapDoneRequest(keyReply.FileId)
-	} else {
-		args := ReduceRequestArgs{}
-		reply := ReduceReplyArgs{}
-		CallReduceRequest(&args, &reply)
-		if reply.ReducePhaseDone {
+		reduceArgs := ReduceRequestArgs{}
+		reduceReply := ReduceReplyArgs{}
+		CallReduceRequest(&reduceArgs, &reduceReply)
+		if reduceReply.ReducePhaseDone {
 			return
 		}
-		kva := []KeyValue{}
-		for i := 0; i < 8; i++ {
-			filename := "main/" + "mr-" + strconv.Itoa(i) + "-" + strconv.Itoa(reply.Id)
-			file, err := os.Open(filename)
-			if err != nil {
-				log.Fatalf("cannot read intermediate file %v\n", filename)
-			}
-			dec := json.NewDecoder(file)
-			for {
-				var kv KeyValue
-				if err := dec.Decode(&kv); err != nil {
-					break
-				}
-				kva = append(kva, kv)
-			}
-		}
 
-		sort.Sort(ByKey(kva))
-
-		oname := "main/mr-out-" + strconv.Itoa(reply.Id)
-		ofile, _ := os.Create(oname)
-
-		i := 0
-		for i < len(kva) {
-			j := i + 1
-			for j < len(kva) && kva[j].Key == kva[i].Key {
-				j++
-			}
-			values := []string{}
-			for k := i; k < j; k++ {
-				values = append(values, kva[k].Value)
-			}
-			output := reducef(kva[i].Key, values)
-
-			fmt.Fprintf(ofile, "%v %v\n", kva[i].Key, output)
-
-			i = j
-		}
-
-		ofile.Close()
-		CallReduceDoneRequest(reply.Id)
+		//kva = []KeyValue{}
+		//for i := 0; i < 8; i++ {
+		//	filename := "mr-" + strconv.Itoa(i) + "-" + strconv.Itoa(reduceReply.Id)
+		//	file, err := os.Open(filename)
+		//	if err != nil {
+		//		continue
+		//		//log.Fatalf("cannot read intermediate file %v\n", filename)
+		//	}
+		//	dec := json.NewDecoder(file)
+		//	for {
+		//		var kv KeyValue
+		//		if err := dec.Decode(&kv); err != nil {
+		//			break
+		//		}
+		//		kva = append(kva, kv)
+		//	}
+		//}
+		//
+		//sort.Sort(ByKey(kva))
+		//
+		//oname := "mr-out-" + strconv.Itoa(reduceReply.Id)
+		//ofile, _ := os.Create(oname)
+		//
+		//i := 0
+		//for i < len(kva) {
+		//	j := i + 1
+		//	for j < len(kva) && kva[j].Key == kva[i].Key {
+		//		j++
+		//	}
+		//	values := []string{}
+		//	for k := i; k < j; k++ {
+		//		values = append(values, kva[k].Value)
+		//	}
+		//	output := reducef(kva[i].Key, values)
+		//
+		//	fmt.Fprintf(ofile, "%v %v\n", kva[i].Key, output)
+		//
+		//	i = j
+		//}
+		//
+		//ofile.Close()
+		//CallReduceDoneRequest(reduceReply.Id)
 	}
 }
 
