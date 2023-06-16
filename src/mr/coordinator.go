@@ -6,15 +6,27 @@ import "os"
 import "net/rpc"
 import "net/http"
 
+type MapTask struct {
+	Status   int // 0 not start 1 start 2 done
+	FileName string
+}
 type Coordinator struct {
 	// Your definitions here.
-	mp      map[int]string
-	NReduce int
+	files            []string
+	MapTaskStatus    []int
+	ReduceTaskStatus []int
+	NReduce          int
 }
 
 func (c *Coordinator) KeyRequest(args *KeyRequestArgs, reply *KeyReplyArgs) error {
-	reply.Filename = c.mp[args.FileId]
+	reply.Filename = c.files[args.FileId]
 	reply.NReduce = c.NReduce
+	c.MapTaskStatus[args.FileId] = 1
+	return nil
+}
+
+func (c *Coordinator) MapDone(args *MapTaskDone, reply *MapTaskDoneReply) error {
+	c.MapTaskStatus[args.Id] = 2
 	return nil
 }
 
@@ -47,14 +59,10 @@ func (c *Coordinator) Done() bool {
 // nReduce is the number of reduce tasks to use.
 func MakeCoordinator(files []string, nReduce int) *Coordinator {
 	c := Coordinator{}
-	c.mp = make(map[int]string)
+	c.files = files
 	c.NReduce = nReduce
-	id := 0
-	for id < len(files) {
-		c.mp[id] = files[id]
-		id++
-	}
-
+	c.MapTaskStatus = make([]int, len(files), len(files))
+	c.ReduceTaskStatus = make([]int, nReduce, nReduce)
 	c.server()
 	return &c
 }

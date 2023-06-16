@@ -31,6 +31,13 @@ type KeyReplyArgs struct {
 	NReduce  int
 }
 
+type MapTaskDone struct {
+	Id int
+}
+
+type MapTaskDoneReply struct {
+}
+
 // Add your RPC definitions here.
 
 // Cook up a unique-ish UNIX-domain socket name

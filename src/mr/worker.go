@@ -65,7 +65,19 @@ func Worker(mapf func(string, string) []KeyValue,
 		newname := prefix + strconv.Itoa(args.FileId) + "-" + strconv.Itoa(idx)
 		os.Rename(oldname, newname)
 	}
+	CallMapDoneRequest(args.FileId)
+}
 
+func CallMapDoneRequest(Id int) {
+	args := MapTaskDone{}
+	args.Id = Id
+	reply := MapTaskDoneReply{}
+	ok := call("Coordinator.MapDone", &args, &reply)
+	if ok {
+		fmt.Printf("MapTask %v done", Id)
+	} else {
+		fmt.Printf("MapTask %v error")
+	}
 }
 
 func CallKeyRequest(Id int, args *KeyRequestArgs, keyReply *KeyReplyArgs) {
