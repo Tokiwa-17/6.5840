@@ -10,6 +10,12 @@ type MapTask struct {
 	Status   int // 0 not start 1 start 2 done
 	FileName string
 }
+
+type ReduceTask struct {
+	Status int
+	Id     int
+}
+
 type Coordinator struct {
 	// Your definitions here.
 	files            []string
@@ -18,8 +24,20 @@ type Coordinator struct {
 	NReduce          int
 }
 
-func (c *Coordinator) KeyRequest(args *KeyRequestArgs, reply *KeyReplyArgs) error {
+func (c *Coordinator) MapRequest(args *MapRequestArgs, reply *MapReplyArgs) error {
+	args.FileId = -1
+	for idx, status := range c.MapTaskStatus {
+		if status == 0 {
+			args.FileId = idx
+			break
+		}
+	}
+	if args.FileId == -1 {
+		reply.MapPhaseDone = true
+		return nil
+	}
 	reply.Filename = c.files[args.FileId]
+	reply.FileId = args.FileId
 	reply.NReduce = c.NReduce
 	c.MapTaskStatus[args.FileId] = 1
 	return nil
@@ -27,6 +45,27 @@ func (c *Coordinator) KeyRequest(args *KeyRequestArgs, reply *KeyReplyArgs) erro
 
 func (c *Coordinator) MapDone(args *MapTaskDone, reply *MapTaskDoneReply) error {
 	c.MapTaskStatus[args.Id] = 2
+	return nil
+}
+
+func (c *Coordinator) ReduceRequest(args *ReduceRequestArgs, reply *ReduceReplyArgs) error {
+	args.Id = -1
+	for idx, status := range c.ReduceTaskStatus {
+		if status == 0 {
+			args.Id = idx
+			break
+		}
+	}
+	if args.Id == -1 {
+		reply.ReducePhaseDone = true
+		return nil
+	}
+	reply.Id = args.Id
+	return nil
+}
+
+func (c *Coordinator) ReduceDone(args *ReduceTaskDone, reply *ReduceDoneReply) error {
+
 	return nil
 }
 
