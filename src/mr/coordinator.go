@@ -27,6 +27,7 @@ type Coordinator struct {
 	NReduce          int
 	TaskDone         bool
 	lastRequestTime  time.Time
+	phaseChange      bool
 }
 
 func (c *Coordinator) MapRequest(args *MapRequestArgs, reply *MapReplyArgs) error {
@@ -39,6 +40,10 @@ func (c *Coordinator) MapRequest(args *MapRequestArgs, reply *MapReplyArgs) erro
 	}
 	if args.FileId == -1 {
 		reply.MapPhaseDone = true
+		if !c.phaseChange {
+			time.Sleep(time.Duration(time.Second * 1))
+			c.phaseChange = true
+		}
 		return nil
 	}
 	reply.Filename = c.files[args.FileId]
@@ -96,10 +101,10 @@ func (c *Coordinator) server() {
 // if the entire job has finished.
 func (c *Coordinator) Done() bool {
 	ret := c.TaskDone
-	d := time.Now().Sub(c.lastRequestTime)
-	if d.Seconds() > 10 {
-		ret = true
-	}
+	//d := time.Now().Sub(c.lastRequestTime)
+	//if d.Seconds() > 10 {
+	//	ret = true
+	//}
 	// Your code here.
 
 	return ret
