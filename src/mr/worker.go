@@ -123,6 +123,7 @@ func Worker(mapf func(string, string) []KeyValue,
 		}
 
 		ofile.Close()
+		CallReduceDoneRequest(reply.Id)
 	}
 }
 
@@ -153,9 +154,21 @@ func CallMapDoneRequest(Id int) {
 	reply := MapTaskDoneReply{}
 	ok := call("Coordinator.MapDone", &args, &reply)
 	if ok {
-		fmt.Printf("MapTask %v done", Id)
+		fmt.Printf("MapTask %v done\n", Id)
 	} else {
-		fmt.Printf("MapTask %v error")
+		log.Fatalf("MapTask %v error\n")
+	}
+}
+
+func CallReduceDoneRequest(Id int) {
+	args := ReduceTaskDone{}
+	args.Id = Id
+	reply := ReduceDoneReply{}
+	ok := call("Coordinator.ReduceDone", &args, &reply)
+	if ok {
+		fmt.Printf("ReduceTask %v done\n", Id)
+	} else {
+		log.Fatalf("ReduceTask %v error\n")
 	}
 }
 

@@ -42,6 +42,7 @@ type MapTaskDoneReply struct {
 }
 
 type ReduceTaskDone struct {
+	Id int
 }
 
 type ReduceDoneReply struct {

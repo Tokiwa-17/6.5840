@@ -22,6 +22,7 @@ type Coordinator struct {
 	MapTaskStatus    []int
 	ReduceTaskStatus []int
 	NReduce          int
+	TaskDone         bool
 }
 
 func (c *Coordinator) MapRequest(args *MapRequestArgs, reply *MapReplyArgs) error {
@@ -58,6 +59,7 @@ func (c *Coordinator) ReduceRequest(args *ReduceRequestArgs, reply *ReduceReplyA
 	}
 	if args.Id == -1 {
 		reply.ReducePhaseDone = true
+		c.TaskDone = true
 		return nil
 	}
 	reply.Id = args.Id
@@ -65,7 +67,7 @@ func (c *Coordinator) ReduceRequest(args *ReduceRequestArgs, reply *ReduceReplyA
 }
 
 func (c *Coordinator) ReduceDone(args *ReduceTaskDone, reply *ReduceDoneReply) error {
-
+	c.ReduceTaskStatus[args.Id] = 2
 	return nil
 }
 
@@ -86,7 +88,7 @@ func (c *Coordinator) server() {
 // main/mrcoordinator.go calls Done() periodically to find out
 // if the entire job has finished.
 func (c *Coordinator) Done() bool {
-	ret := false
+	ret := c.TaskDone
 
 	// Your code here.
 
@@ -98,6 +100,7 @@ func (c *Coordinator) Done() bool {
 // nReduce is the number of reduce tasks to use.
 func MakeCoordinator(files []string, nReduce int) *Coordinator {
 	c := Coordinator{}
+	c.TaskDone = false
 	c.files = files
 	c.NReduce = nReduce
 	c.MapTaskStatus = make([]int, len(files), len(files))
