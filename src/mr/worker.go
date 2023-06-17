@@ -38,7 +38,6 @@ func ihash(key string) int {
 // main/mrworker.go calls this function.
 func Worker(mapf func(string, string) []KeyValue,
 	reducef func(string, []string) string) {
-
 	// Your worker implementation here.
 	for {
 		//Fixme： add an askForTask call
@@ -94,6 +93,11 @@ func Worker(mapf func(string, string) []KeyValue,
 			CallReduceRequest(&reduceArgs, &reduceReply)
 			if reduceReply.ReducePhaseDone {
 				return
+			} else {
+				if reduceReply.Id == -1 {
+					time.Sleep(time.Second * 3)
+					return
+				}
 			}
 			kva := []KeyValue{}
 			for i := 0; i < 8; i++ {
@@ -146,7 +150,7 @@ func CallMapRequest(args *MapRequestArgs, mapReply *MapReplyArgs) {
 	ok := call("Coordinator.MapRequest", &args, &mapReply)
 
 	if ok {
-		fmt.Printf("Map key %v\n", mapReply.Filename)
+		//fmt.Printf("Map key %v\n", mapReply.Filename)
 	} else {
 		log.Fatalf("MapRequest call failed!\n")
 	}
@@ -156,7 +160,7 @@ func CallReduceRequest(args *ReduceRequestArgs, reduceReply *ReduceReplyArgs) {
 	ok := call("Coordinator.ReduceRequest", &args, &reduceReply)
 
 	if ok {
-		fmt.Printf("Reduce Id %v\n", reduceReply.Id)
+		//fmt.Printf("Reduce Id %v\n", reduceReply.Id)
 	} else {
 		log.Fatalf("ReduceRequest call failed!\n")
 	}
@@ -168,7 +172,7 @@ func CallMapDoneRequest(Id int) {
 	reply := MapTaskDoneReply{}
 	ok := call("Coordinator.MapDone", &args, &reply)
 	if ok {
-		fmt.Printf("MapTask %v done\n", Id)
+		//fmt.Printf("MapTask %v done\n", Id)
 	} else {
 		log.Fatalf("MapTask %v error\n")
 	}
@@ -180,7 +184,7 @@ func CallReduceDoneRequest(Id int) {
 	reply := ReduceDoneReply{}
 	ok := call("Coordinator.ReduceDone", &args, &reply)
 	if ok {
-		fmt.Printf("ReduceTask %v done\n", Id)
+		//fmt.Printf("ReduceTask %v done\n", Id)
 	} else {
 		log.Fatalf("ReduceTask %v error\n")
 	}

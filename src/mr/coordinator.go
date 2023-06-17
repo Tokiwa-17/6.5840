@@ -21,20 +21,24 @@ type ReduceTask struct {
 
 type Coordinator struct {
 	// Your definitions here.
-	files            []string
-	MapTaskStatus    []int
-	ReduceTaskStatus []int
-	NReduce          int
-	TaskDone         bool
-	lastRequestTime  time.Time
-	phaseChange      bool
+	files               []string
+	MapTaskStatus       []int
+	MapTaskStartTime    []time.Time
+	ReduceTaskStatus    []int
+	ReduceTaskStartTime []time.Time
+	NReduce             int
+	TaskDone            bool
+	lastRequestTime     time.Time
+	phaseChange         bool
 }
 
 func (c *Coordinator) MapRequest(args *MapRequestArgs, reply *MapReplyArgs) error {
 	args.FileId = -1
 	for idx, status := range c.MapTaskStatus {
+		//if status == 0 || (status == 1 && time.Now().Sub(c.MapTaskStartTime[idx]) > 5*time.Second) {
 		if status == 0 {
 			args.FileId = idx
+			//c.MapTaskStartTime[idx] = time.Now()
 			break
 		}
 	}
@@ -61,15 +65,24 @@ func (c *Coordinator) MapDone(args *MapTaskDone, reply *MapTaskDoneReply) error 
 
 func (c *Coordinator) ReduceRequest(args *ReduceRequestArgs, reply *ReduceReplyArgs) error {
 	args.Id = -1
+	flag := true
 	for idx, status := range c.ReduceTaskStatus {
+		//if status == 0 || (status == 1 && time.Now().Sub(c.ReduceTaskStartTime[idx]) > 5*time.Second) {
+		if status != 2 {
+			flag = false
+		}
 		if status == 0 {
 			args.Id = idx
+			//c.ReduceTaskStartTime[idx] = time.Now()
 			break
 		}
 	}
 	if args.Id == -1 {
-		reply.ReducePhaseDone = true
-		c.TaskDone = true
+		if flag {
+			reply.ReducePhaseDone = true
+			c.TaskDone = true
+		}
+		reply.Id = -1
 		return nil
 	}
 	reply.Id = args.Id
@@ -101,6 +114,9 @@ func (c *Coordinator) server() {
 // if the entire job has finished.
 func (c *Coordinator) Done() bool {
 	ret := c.TaskDone
+	//if ret == true {
+	//	time.Sleep(time.Second * 2)
+	//}
 	//d := time.Now().Sub(c.lastRequestTime)
 	//if d.Seconds() > 10 {
 	//	ret = true
