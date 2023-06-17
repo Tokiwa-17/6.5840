@@ -34,16 +34,25 @@ type Coordinator struct {
 
 func (c *Coordinator) MapRequest(args *MapRequestArgs, reply *MapReplyArgs) error {
 	args.FileId = -1
+	flag := true
 	for idx, status := range c.MapTaskStatus {
 		//if status == 0 || (status == 1 && time.Now().Sub(c.MapTaskStartTime[idx]) > 5*time.Second) {
+		if status != 2 {
+			flag = false
+		}
 		if status == 0 {
 			args.FileId = idx
-			//c.MapTaskStartTime[idx] = time.Now()
+			break
+		}
+		if status == 1 && time.Now().Sub(c.MapTaskStartTime[idx]).Seconds() > 5 {
+			args.FileId = idx
 			break
 		}
 	}
 	if args.FileId == -1 {
-		reply.MapPhaseDone = true
+		if flag {
+			reply.MapPhaseDone = true
+		}
 		if !c.phaseChange {
 			time.Sleep(time.Duration(time.Second * 1))
 			c.phaseChange = true
@@ -54,7 +63,7 @@ func (c *Coordinator) MapRequest(args *MapRequestArgs, reply *MapReplyArgs) erro
 	reply.FileId = args.FileId
 	reply.NReduce = c.NReduce
 	c.MapTaskStatus[args.FileId] = 1
-	c.lastRequestTime = time.Now()
+	c.MapTaskStartTime[args.FileId] = time.Now()
 	return nil
 }
 
@@ -71,9 +80,12 @@ func (c *Coordinator) ReduceRequest(args *ReduceRequestArgs, reply *ReduceReplyA
 		if status != 2 {
 			flag = false
 		}
+		if status == 1 && time.Now().Sub(c.ReduceTaskStartTime[idx]).Seconds() > 5 {
+			args.Id = idx
+			break
+		}
 		if status == 0 {
 			args.Id = idx
-			//c.ReduceTaskStartTime[idx] = time.Now()
 			break
 		}
 	}
@@ -87,7 +99,7 @@ func (c *Coordinator) ReduceRequest(args *ReduceRequestArgs, reply *ReduceReplyA
 	}
 	reply.Id = args.Id
 	c.ReduceTaskStatus[args.Id] = 1
-	c.lastRequestTime = time.Now()
+	c.ReduceTaskStartTime[args.Id] = time.Now()
 	return nil
 }
 
@@ -115,7 +127,7 @@ func (c *Coordinator) server() {
 func (c *Coordinator) Done() bool {
 	ret := c.TaskDone
 	//if ret == true {
-	//	time.Sleep(time.Second * 2)
+	//	time.Sleep(time.Second * 30)
 	//}
 	//d := time.Now().Sub(c.lastRequestTime)
 	//if d.Seconds() > 10 {
@@ -135,7 +147,9 @@ func MakeCoordinator(files []string, nReduce int) *Coordinator {
 	c.files = files
 	c.NReduce = nReduce
 	c.MapTaskStatus = make([]int, len(files), len(files))
+	c.MapTaskStartTime = make([]time.Time, len(files), len(files))
 	c.ReduceTaskStatus = make([]int, nReduce, nReduce)
+	c.ReduceTaskStartTime = make([]time.Time, nReduce, nReduce)
 	c.lastRequestTime = time.Now()
 	c.server()
 	return &c
