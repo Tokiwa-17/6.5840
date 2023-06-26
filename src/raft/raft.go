@@ -18,7 +18,6 @@ package raft
 //
 
 import (
-	"fmt"
 	//	"bytes"
 	"math/rand"
 	"sync"
@@ -31,6 +30,7 @@ import (
 
 const (
 	Follower = iota
+	Candidate
 	Leader
 )
 
@@ -168,15 +168,25 @@ type AppendEntriesArgs struct {
 }
 
 type AppendEntriesReply struct {
+	Term int
 }
 
 // example RequestVote RPC handler.
 func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	// Your code here (2A, 2B).
-	if args.CandidateId != rf.me && rf.dead != 1 && rf.currentTerm <= args.Term {
-		rf.state = Follower
-		reply.VoteGranted = true
-		reply.Term = args.Term + 1
+	if args.CandidateId != rf.me && rf.dead != 1 {
+		if args.Term < rf.currentTerm || (args.Term == rf.currentTerm && rf.votedFor != -1) {
+			// 不投给candidateId
+			reply.Term = rf.currentTerm
+			reply.VoteGranted = false
+		}
+		if args.Term > rf.currentTerm {
+			rf.currentTerm = args.Term
+			rf.votedFor = args.CandidateId
+			rf.electionTimer.Reset(randomTimeoutDuration())
+			reply.VoteGranted = true
+			reply.Term = rf.currentTerm
+		}
 	}
 }
 
@@ -254,9 +264,8 @@ func (rf *Raft) killed() bool {
 }
 
 func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
-	if args.Term > rf.currentTerm {
-		rf.heartbeatTimer.Reset(heartbeatTimeoutDuration())
-	}
+	reply.Term = rf.currentTerm
+	rf.electionTimer.Reset(randomTimeoutDuration())
 }
 
 func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *AppendEntriesReply) bool {
@@ -264,50 +273,58 @@ func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *Ap
 	return ok
 }
 
-func (rf *Raft) broadCastNewLeader() {
+func (rf *Raft) broadCastHeartBeat() {
 	for peer := range rf.peers {
 		if peer == rf.me {
-			return
+			rf.electionTimer.Reset(randomTimeoutDuration())
+			continue
 		}
 		go func(peer int) {
 			args := AppendEntriesArgs{
 				Term: rf.currentTerm,
 			}
 			reply := AppendEntriesReply{}
-			rf.sendAppendEntries(peer, &args, &reply)
+			if rf.sendAppendEntries(peer, &args, &reply) {
+				if reply.Term > args.Term {
+					rf.state = Follower
+					rf.currentTerm = reply.Term
+					rf.votedFor = -1
+				}
+			}
 		}(peer)
 	}
 }
 
 func (rf *Raft) startElection() {
-	args := RequestVoteArgs{
-		Term:         rf.currentTerm,
-		CandidateId:  rf.me,
-		LastLogIndex: -1, //FIXME:
-		LastLogTerm:  -1,
-	}
-	reply := RequestVoteReply{
-		Term:        rf.currentTerm,
-		VoteGranted: false,
-	}
+	rf.state = Candidate
+	rf.currentTerm += 1
 	voteCnt := 1
 	for idx, _ := range rf.peers {
 		if idx == rf.me {
 			continue
 		}
-		rf.sendRequestVote(idx, &args, &reply)
-		if reply.VoteGranted {
-			voteCnt += 1
-		}
-		if voteCnt > len(rf.peers)/2 {
-			rf.state = Leader
-			rf.broadCastNewLeader()
-			rf.currentTerm = rf.currentTerm + 1
-			rf.electionTimer.Reset(randomTimeoutDuration())
-			rf.heartbeatTimer.Reset(heartbeatTimeoutDuration())
-
-		}
+		go func(idx int) {
+			args := RequestVoteArgs{
+				Term:        rf.currentTerm,
+				CandidateId: rf.me,
+			}
+			reply := RequestVoteReply{}
+			rf.sendRequestVote(idx, &args, &reply)
+			if reply.VoteGranted {
+				voteCnt += 1
+			}
+			if voteCnt > len(rf.peers)/2 {
+				rf.state = Leader
+				rf.broadCastHeartBeat()
+				rf.heartbeatTimer.Reset(heartbeatTimeoutDuration())
+			} else if reply.Term > rf.currentTerm {
+				rf.state = Follower
+				rf.currentTerm = reply.Term
+				rf.votedFor = -1
+			}
+		}(idx)
 	}
+
 }
 
 func (rf *Raft) ticker() {
@@ -317,13 +334,17 @@ func (rf *Raft) ticker() {
 		// Check if a leader election should be started.
 		select {
 		case <-rf.electionTimer.C:
-			fmt.Println("election start.")
+			//fmt.Println("election start.")
+			rf.mu.Lock()
 			rf.startElection()
-			rf.electionTimer.Reset(randomTimeoutDuration())
+			rf.mu.Unlock()
 		case <-rf.heartbeatTimer.C:
-			fmt.Println("heartbeat timeout.")
-			//rf.sendAppendEntries()
-			rf.heartbeatTimer.Reset(heartbeatTimeoutDuration())
+			rf.mu.Lock()
+			if rf.state == Leader {
+				rf.broadCastHeartBeat()
+				rf.heartbeatTimer.Reset(heartbeatTimeoutDuration())
+			}
+			rf.mu.Unlock()
 		}
 		// pause for a random amount of time between 50 and 350
 		// milliseconds.
@@ -361,7 +382,7 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.me = me
 
 	// Your initialization code here (2A, 2B, 2C).
-	rf.currentTerm = -1
+	rf.currentTerm = 0
 	rf.votedFor = -1
 	rf.state = Follower
 	rf.heartbeatTimer = time.NewTimer(heartbeatTimeoutDuration())
