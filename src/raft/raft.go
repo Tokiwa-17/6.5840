@@ -340,6 +340,7 @@ func (rf *Raft) ticker() {
 			//fmt.Println("election start.")
 			rf.mu.Lock()
 			rf.startElection()
+			rf.electionTimer.Reset(randomTimeoutDuration())
 			rf.mu.Unlock()
 		case <-rf.heartbeatTimer.C:
 			rf.mu.Lock()
