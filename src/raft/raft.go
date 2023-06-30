@@ -180,7 +180,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 			reply.Term = rf.currentTerm
 			reply.VoteGranted = false
 		}
-		if args.Term > rf.currentTerm {
+		if args.Term >= rf.currentTerm || (args.Term == rf.currentTerm && rf.votedFor == -1) {
 			rf.currentTerm = args.Term
 			rf.votedFor = args.CandidateId
 			rf.electionTimer.Reset(randomTimeoutDuration())
@@ -265,7 +265,10 @@ func (rf *Raft) killed() bool {
 
 func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
 	reply.Term = rf.currentTerm
-	rf.electionTimer.Reset(randomTimeoutDuration())
+	if args.Term >= reply.Term {
+		rf.state = Follower
+		rf.electionTimer.Reset(randomTimeoutDuration())
+	}
 }
 
 func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *AppendEntriesReply) bool {
